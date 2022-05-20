@@ -1,0 +1,7 @@
+{
+  "name": "ionic6ComTypeormExemplo",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
