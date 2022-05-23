@@ -1,0 +1,129 @@
+Referencias: 
+https://www.techiediaries.com/ionic-angular-typeorm-custom-webpack-configuration/
+https://lucashenriquedeabreu.medium.com/todo-com-ionic-4-e-typeorm-f1d03be055fa
+https://stackoverflow.com/questions/51068908/angular-cli-custom-webpack-config
+https://stackoverflow.com/questions/64557638/how-to-polyfill-node-core-modules-in-webpack-5
+https://github.com/typeorm/typeorm/issues/5634
+https://github.com/coturiv/ionic-typeorm-starter/blob/master/README.md
+https://github.com/typeorm/typeorm/issues/2897
+
+ERRO 'JavaScript heap out of memory' ( https://github.com/ionic-team/ionic-app-scripts/issues/1467 )
+Solução {
+    $ export NODE_OPTIONS=--max-old-space-size=4096
+}
+
+
+Node: v16.14.0
+Ionic: 6.19.1
+
+$ npm install typeorm@0.2.31 --save
+$ npm install @types/node@^12.20.50 --save-dev
+$ npm install sql.js@1.6.2 --save
+
+Abra o arquivo "tsconfig.json" e adicione a propriedade "typeRoots": ["node_modules/@types"] na chave "compilerOptions"
+
+No arquivo "tsconfig.json" adicione a propriedade "emitDecoratorMetadata": true, na chave "compilerOptions"
+
+Depois abra "src/tsconfig.app.json" e adicione o seguinte codigo em "compilerOptions"
+"types": ["node"],
+"paths": {
+    "typeorm": ["node_modules/typeorm/browser"]
+}
+
+$ touch custom.webpack.config.js
+>> Codigo do custom.webpack {
+    
+    const webpack = require('webpack');
+    const path = require('path');
+
+    console.log('The custom config is used <<<<<<<<<<<<<< ');
+    module.exports = {
+        plugins: [
+            new webpack.ProvidePlugin({
+                'window.SQL': path.join(__dirname, './node_modules/sql.js/dist/sql-asm.js'),
+            }),
+            new webpack.ProvidePlugin({
+                'window.SQL': 'sql.js/js/sql.js'
+            }),
+            new webpack.NormalModuleReplacementPlugin(/typeorm$/, function (result) {
+                result.request = result.request.replace(/typeorm/, "typeorm/browser");
+            })
+        ],
+        resolve: {
+            fallback: {
+                "path": require.resolve("./node_modules/path-browserify"),
+                "crypto": require.resolve("./node_modules/crypto-browserify"),
+                "stream": require.resolve("./node_modules/stream-browserify"),
+                fs: false,
+                net: false,
+                tls: false
+            }
+        },
+        optimization: {
+            minimize: false,
+        }
+    };
+
+}
+
+POSSIVELMENTE terá que instalar
+$ npm i --save path-browserify@1.0.1 crypto-browserify@3.12.0 stream-browserify@3.0.0 
+
+
+$ npm install --save @angular-builders/custom-webpack@13.1.0
+
+Em angular.json troque "builder": "@angular-devkit/build-angular:browser" POR "builder": "@angular-builders/custom-webpack:browser" e no atributo "options" adicione o seguinte codigo...
+
+"customWebpackConfig": {
+    "path": "./custom.webpack.config.js"
+},
+
+Agora procure por "serve": { "builder": ....... }, troque "builder": "@angular-devkit/build-angular:dev-server" POR "builder": "@angular-builders/custom-webpack:dev-server" 
+
+
+Agora no package.json em "devDependencies" adicione: {
+    ...
+    "cordova-sqlite-storage": "^6.0.0",
+    ...
+}
+
+*Possivelmente será necessario adicionar a plataforma nessa etapa com o comando $ ionic cordova platform add android ou $ ionic cordova run android --target=ID_AQUI
+
+Caso tenha erro com a pasta resources faltando, você pode instalar rodar o comando $ ionic integrations enable cordova --add
+
+e em "plugins": {
+    ...
+    "cordova-sqlite-storage": {},
+    ...
+}
+
+pronto...............aqui está como é feita a conexão com o banco...
+
+try {
+    if(!this.platform.is('cordova')) {
+        await createConnection({
+            type: 'sqljs',
+            autoSave: true,
+            location: 'browser',
+            logging: ['error', 'query', 'schema'],
+            synchronize: true,
+            entities: [
+                User
+            ],
+        });
+    } else {
+        console.log("CONEXÃO CORDOVA")
+        await createConnection({
+            type: 'cordova',
+            database: 'myCustomDB',
+            location: 'default',
+            logging: ['error', 'query', 'schema'],
+            synchronize: true,
+            entities: [
+                User
+            ],
+        });
+    }
+} catch (e) {
+    alert(JSON.stringify(e))
+}
